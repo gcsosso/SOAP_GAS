@@ -326,4 +326,4 @@ if __name__ == '__main__':
     start = time.time()
     Main(params)
     end = time.time()
-    writeToFile("Time taken: {}s".format(end-start))
+    writeToFile("Time taken: {}s".format(end-start)) 
