@@ -47,7 +47,7 @@ involve an intractacble number of potential combinations.
   
 ## The Genetic Algorithm 
   
-  ![This is an image](https://sossogroup.uk/wp-content/uploads/2022/03/GA_workflow.pdf)
+  ![This is an image](https://sossogroup.uk/wp-content/uploads/2022/03/GA_workflow.png)
 
   The `SOAP_GAS` code seeks to optimise the SOAP parameters by means of a genetic algorithm,
 which structure is depicted in the figure below. We start by constructing a so-called Initial Population containing a
