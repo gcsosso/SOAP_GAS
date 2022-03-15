@@ -45,7 +45,11 @@ grid search is needed to try and identify a sufficiently accurate combination of
   In addition, optimising the SOAP parameters for different SOAPS via a randomised grid search *at the same time* would
 involve an intractacble number of potential combinations.
   
-## The Genetic Algorithm The `SOAP_GAS` code seeks to optimise the SOAP parameters by means of a genetic algorithm,
+## The Genetic Algorithm 
+  
+  ![This is an image](https://sossogroup.uk/wp-content/uploads/2022/03/GA_workflow.pdf)
+
+  The `SOAP_GAS` code seeks to optimise the SOAP parameters by means of a genetic algorithm,
 which structure is depicted in the figure below. We start by constructing a so-called Initial Population containing a
 certain number of Individuals. Each Individual is SOAP descriptor characterised by a randomly selected set of SOAP
 parameters. For each Invidual within the Initial Population we compute a Score, that is a metric that quantify the
