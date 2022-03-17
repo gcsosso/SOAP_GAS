@@ -1,6 +1,10 @@
 # SOAP_GAS
 A genetic algorithm to optimise the SOAP descriptor. 
 
+# TBF:
+## EARLY STOPPING
+## CONCURRENT FEATURES
+
 ## Motivation
 The Smooth Overlap of Atomic Positions (SOAP) descriptor <REF> is a set of mathematical objects that can be used to
 represents and/or extract information from molecular structures. The SOAP descriptor has been used to build machine
