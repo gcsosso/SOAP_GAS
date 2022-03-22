@@ -2,7 +2,7 @@
 A genetic algorithm to optimise the SOAP descriptor. 
 
 ## Motivation
-The Smooth Overlap of Atomic Positions (SOAP) descriptor <REF> is a set of mathematical objects that can be used to
+The Smooth Overlap of Atomic Positions (SOAP) descriptor [[1]](#1) is a set of mathematical objects that can be used to
 represents and/or extract information from molecular structures. The SOAP descriptor has been used to build machine
 learning-based interatomic potentials for a number of materials. More relevant to the `SOAP_GAS` code, however, is the
 usage of the SOAP descriptor to predict the functional properties of molecular structures by means of machine learning
@@ -58,8 +58,7 @@ learning algorithm used to compute the Score can be easily modified by leveragin
 [scikit-learn](https://scikit-learn.org/stable/). Cross-validation is generally recommeneded (particularly when dealing with small dataset)
 in orde to ensure the reproducicibility of the Score. When dealing with regression problems, the Score involves the mean
 squared error (MSE) and the Pearson correlation coefficient (PCC) for both training and test test, whilst for
-classification problems the Score is based on the Matthews correlation coefficient (MCC) - see Ref.<REF> for the
-details. 
+classification problems the Score is based on the Matthews correlation coefficient (MCC).
 
 A certain number (`bestSample`, see the input reference below) of Individuals is then chosen according to their
 Score, together with a usually smaller number (`luckyFew`, see the input reference below) of Individuals notwithstanding
@@ -80,9 +79,9 @@ train/test splits used for the cross validation relative to that particular Scor
 * Full control of the search space
 * Full control of the genetic algorithm parameters, including early stopping criteria
 * Parallelisation enabled via `concurrent.futures`
-* Heterogeneous datasets containing different moelcules with different numbers of atomic species can be considered via the average keyword (see <REF>)
+* Heterogeneous datasets containing different moelcules with different numbers of atomic species can be considered via the average keyword (see Ref. [[1]](#1))
 * 3D molecular models of crystals, liquids or amorphous systems can also be considered
-* Compressed SOAP descriptors can be used to reduce the dimensionality of the descriptors (and thus the computational effort), see <REF>
+* Compressed SOAP descriptors can be used to reduce the dimensionality of the descriptors (and thus the computational effort), see Ref. [[2]](#2).
 * Simultaneous optimisation of the SOAP parameters for different SOAP descriptors at the same time
   
 ## Installation
@@ -157,13 +156,14 @@ Centres and neighbors
     atomic number of the atomic species used as centre for that particular SOAP descriptor
   * `'neighbours'` : '{(, int, ..., int)}'. Same as `'centres'`, only this specifies the neighbour atoms instead.
 
-Compression options (see Ref. <>)
+Compression options 
+The different compression options are discussed in Ref. [[2]](#2). Note that `'mu'`=0, `'mu_hat'`=0, `'nu'`=2 and `'nu_hat'`=0 is equivalent to not apply any compression at all.
   * `'mu'` : int
   * `'mu_hat'` : int
   * `'nu'`: int
   * `'nu_hat'`: int
 
-Average option (see Ref. <>)
+Average option (see Ref. [[1]](#1))
   * `'average'`: Boolean
   
 SOAP example
@@ -206,5 +206,25 @@ earlyNum = 5
 multiProcessing = True
 ```
 
-### all-all SOAP optimisation, with compression
-### Multiple SOAP simultaneous optimisation
+* Optimise the SOAP parameters of two SOAP descriptors at the same time, using compression:
+```
+SOAP_C_all = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 1, 'nu': 1, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
+SOAP_H_all = {'lower' : 2,'upper' : 10,'centres' : '{1}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
+descList = [SOAP_C_all, SOAP_H_all]
+numberOfGenerations = 20
+popSize = 24
+bestSample = 6
+luckyFew = 2
+numberChildren = 6
+earlyStop = 0.04
+earlyNum = 5
+multiProcessing = True
+```
+
+  ## References
+  <a id="1">[1]</a> 
+De, S., Bartók, A. P., Csányi, G. & Ceriotti, M. Comparing molecules and solids across structural and alchemical space. Phys. Chem. Chem. Phys. 18, 13754–13769 (2016).
+
+  <a id="2">[2]</a>
+Darby, J. P., Kermode, J. R. & Csányi, G. Compressing local atomic neighbourhood descriptors. (2021) doi:10.48550/arXiv.2112.13055.
+
