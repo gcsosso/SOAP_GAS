@@ -1,10 +1,6 @@
 # SOAP_GAS
 A genetic algorithm to optimise the SOAP descriptor. 
 
-# TBF:
-## EARLY STOPPING
-## CONCURRENT FEATURES
-
 ## Motivation
 The Smooth Overlap of Atomic Positions (SOAP) descriptor <REF> is a set of mathematical objects that can be used to
 represents and/or extract information from molecular structures. The SOAP descriptor has been used to build machine
@@ -51,7 +47,7 @@ involve an intractacble number of potential combinations.
   
 ## The Genetic Algorithm 
   
-  ![This is an image](https://sossogroup.uk/wp-content/uploads/2022/03/GA_workflow.png)
+  ![This is an image](https://sossogroup.uk/wp-content/uploads/2022/03/Fig_1-scaled.jpg)
 
   The `SOAP_GAS` code seeks to optimise the SOAP parameters by means of a genetic algorithm,
 which structure is depicted in the figure below. We start by constructing a so-called Initial Population containing a
@@ -82,7 +78,8 @@ train/test splits used for the cross validation relative to that particular Scor
 ## Features
 * Regression as well as classification capabilities
 * Full control of the search space
-* Full control of the genetic algorithm parameters
+* Full control of the genetic algorithm parameters, including early stopping criteria
+* Parallelisation enabled via `concurrent.futures`
 * Heterogeneous datasets containing different moelcules with different numbers of atomic species can be considered via the average keyword (see <REF>)
 * 3D molecular models of crystals, liquids or amorphous systems can also be considered
 * Compressed SOAP descriptors can be used to reduce the dimensionality of the descriptors (and thus the computational effort), see <REF>
@@ -168,16 +165,20 @@ Compression options (see Ref. <>)
 
 Average option (see Ref. <>)
   * `'average'`: Boolean
-  * `'mutationChance'`: float. probability that one of the SOAP parameteres will mutate from one generation to the next. The same probability is applied independently to each parameter.
+  
+SOAP example
+  * `descDict3 = {'lower' : 2,'upper' : 6,'centres' : '{8, 7, 6, 1, 16, 17, 9}','neighbours' : '{8, 7, 6, 1, 16, 17, 9}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 10, 'min_sigma':0.1, 'max_sigma':0.5})`
 
-For instance: `descDict3 = {'lower' : 2,'upper' : 6,'centres' : '{8, 7, 6, 1, 16, 17, 9}','neighbours' : '{8, 7, 6, 1, 16, 17, 9}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 10, 'min_sigma':0.1, 'max_sigma':0.5})`
-* `descList` ([descDict3])
-* `numberOfGenerations` (20)
-* `popSize` (12)
-* `bestSample` (6) bestSample+luckyFew cannot be an odd number because of the breeding
-* `luckyFew` (2)
-* `numberChildren` (3)
-NOPE * `multi` (True) NOPE
+GA parameters
+* `numberOfGenerations`: integer. The number of generations the GA will run - unless the early stopping criterion (see below) is met. 
+* `popSize: integer. Population size, i.e. number of individuals (i.e. number of SOAPs or *sets* of SOAPs) for each generation. This number does not change across different generations. The following equality has to apply at any time:  `popSize = numberChildren x (bestSample + luckyFew)/2`
+* `bestSample`: integer. The number of individuals that produced the best scores, to be picked as parents (together with some `luckyFew`, see below) for the breeding. 
+* `luckyFew: integer. The number of individuals, selected randomly from the population notwithstanding their score, to be picked as parents for he breeding together with the `bestSample` ones (see above). Note that `bestSample+luckyFew` cannot be an odd number because the breeding process relies on pairs of individuals.
+* `numberChildren`: integer. The number of individuals generated via the breeding.
+* `'mutationChance'`: float between 0 and 1. Probability (0-1 implies a zero and a 100% chance, respectively) that each one of the SOAP parameteres within each SOAP will mutate from one generation to the next. The same probability is applied independently to each parameter.
+* `earlyStop`: float between 0 and 1. Tolerance criterion for any two generations to be considered equally accurate. In conjunction iwth earlyNum (see below) it determines the early stopping criterion for the GA. E.g., `earlyStop`=0.04 implies that two generations which best score is within 4% of each other are to be considered as equally accurate.
+* `earlyNum`: integer. Number of equally accurate generations (according to the `earlyStopa threshold, see above) that must be generated in order for the GA to stop. Note that the `earlyNum` do *not* need to be generated consecutively, but at any point along the GA instead.
+* `multiProcessing`: Boolean. Enables or Disables the usage of `concurrent.futures` to distribute the computation of the scores for different individuals across different CPUs.
   
 ## Output files
 * Backed up outputs
