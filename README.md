@@ -209,7 +209,7 @@ multiProcessing = True
 * Optimise the SOAP parameters of two SOAP descriptors at the same time, using compression:
 ```
 SOAP_C_all = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 1, 'nu': 1, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
-SOAP_H_all = {'lower' : 2,'upper' : 10,'centres' : '{1}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
+SOAP_H_all = {'lower' : 2,'upper' : 10,'centres' : '{1}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 1, 'nu':1, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
 descList = [SOAP_C_all, SOAP_H_all]
 numberOfGenerations = 20
 popSize = 24
