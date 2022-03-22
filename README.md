@@ -193,25 +193,16 @@ GA parameters
   
 ## Examples
 * Optimise the SOAP parameters of a C-C SOAP, with no compression:
-  ```
-  SOAP_CC = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
-  
+```
+SOAP_CC = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
 descList = [SOAP_CC]
-  
 numberOfGenerations = 20
-  
 popSize = 24
-  
 bestSample = 6
-  
 luckyFew = 2
-  
 numberChildren = 6
-  
 earlyStop = 0.04
-  
 earlyNum = 5
-  
 multiProcessing = True
 ```
 
