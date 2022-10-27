@@ -13,6 +13,45 @@ import numpy as np
 
 @dataclass
 class GeneParameters:
+    """
+    Class to save the parameters given as inputs
+    ...
+    Attributes
+    ----------
+    lower : int
+        The lower bound for l_max and n_max
+    upper : int
+        The upper bound for l_max and n_max
+    centres : str
+        A string of the format '{a, b, c}' where a, b and c are all
+        chemical symbols that represent the species to be used as centres
+    neighbours : str
+        A string of the format '{a, b, c}' where a, b and c are all
+        chemical symbols that represent the species to be used as neighbours
+    mu : int
+        Compression parameter
+    mu_hat : int
+        Compression parameter
+    nu : int
+        Compression parameter
+    nu_hat : int
+        Compression parameter
+    mutation_chance : float
+        Probability of a gene mutating after breeding
+    min_cutoff : int
+        Lower bound for cutoff
+    max_cutoff : int
+        Upper bound for cutoff
+    min_sigma : float
+        Lower bound for sigma
+    max_sigma : float
+        Upper bound for sigma
+
+    Methods
+    -------
+    make_gene_set()
+        Generates a random set of genes in the form of a GeneSet class
+    """
     lower: int
     upper: int
     centres: str
@@ -28,6 +67,14 @@ class GeneParameters:
     max_sigma: float
 
     def make_gene_set(self):
+        """ Generates a random set of genes in the form of a GeneSet class
+
+        Returns
+        -------
+        GeneSet
+            A GeneSet class that has been generated using random values
+            within the bounds stipulated in this GeneParameter class
+        """
         cutoff = np.random.randint(self.min_cutoff, self.max_cutoff)
         l_max = np.random.randint(self.lower, self.upper)
         n_max = np.random.randint(self.lower, self.upper)
@@ -35,7 +82,32 @@ class GeneParameters:
         return GeneSet(self, cutoff, l_max, n_max, sigma)
 
 
-class GeneSet():
+class GeneSet:
+    """
+    A class used to represent a specific set of genes
+
+    ...
+
+    Attributes
+    ----------
+    gene_parameters : GeneParameter
+        A GeneParameter class that contains information about the
+        parameters used to generate this GeneSet
+    cutoff : int
+        The cutoff function for the basis function (Å)
+    l_max : int
+        The maximum degree of the spherical harmonics
+    n_max : int
+        The number of radial basis functions
+    sigma : float
+        The Gaussian spearing width of atom density σ (Å)
+
+    Methods
+    -------
+    mutate_gene()
+        Mutates the GeneSet instance
+    """
+
     def __init__(self, gene_parameters, cutoff, l_max, n_max, sigma):
         self.gene_parameters = gene_parameters
         self.cutoff = cutoff
@@ -47,30 +119,51 @@ class GeneSet():
         return f"[{self.cutoff}, {self.l_max}, {self.n_max}, {self.sigma}]"
 
     def __repr__(self):
-        return f"GeneSet({self.cutoff}, {self.l_max}, {self.n_max}, {self.sigma})"
+        return f"GeneSet({self.cutoff}, {self.l_max}, " \
+               f"{self.n_max}, {self.sigma})"
 
     def mutate_gene(self):
+        """ Mutates the GeneSet instance
+
+        Each GeneSet has a mutation chance that is inherited from the
+        GeneParameter class used to create the GeneSet. This method does
+        not return anything and instead permanently modifies the GeneSet
+        instance that runs it.
+        """
         new_mutation = self.gene_parameters.make_gene_set()
-        mutation_chance = self.gene_parameters.mutation_chance
-        self.cutoff = choices([self.cutoff, new_mutation.cutoff], weights=[1 - mutation_chance, mutation_chance], k=1)[0]
-        self.l_max = choices([self.l_max, new_mutation.l_max], weights=[1 - mutation_chance, mutation_chance], k=1)[0]
-        self.n_max = choices([self.n_max, new_mutation.n_max], weights=[1 - mutation_chance, mutation_chance], k=1)[0]
-        self.sigma = choices([self.sigma, new_mutation.sigma], weights=[1 - mutation_chance, mutation_chance], k=1)[0]
-    def breed(self, other):
-        # print(f"before breed {self}")
-        self.cutoff = choice([self.cutoff, other.cutoff])
-        self.l_max = choice([self.l_max, other.l_max])
-        self.n_max = choice([self.n_max, other.n_max])
-        self.sigma = choice([self.sigma, other.sigma])
-        self.mutate_gene()
-        # print(f"after breed {self}")
-        return self
+        weights = [1 - self.gene_parameters.mutation_chance,
+                   self.gene_parameters.mutation_chance]
+        self.cutoff = choices([self.cutoff, new_mutation.cutoff],
+                              weights=weights, k=1)[0]
+        self.l_max = choices([self.l_max, new_mutation.l_max],
+                             weights=weights, k=1)[0]
+        self.n_max = choices([self.n_max, new_mutation.n_max],
+                             weights=weights, k=1)[0]
+        self.sigma = choices([self.sigma, new_mutation.sigma],
+                             weights=weights, k=1)[0]
 
 
 class Individual:
+    """
+    A class that represents an Individual. An individual is made of a
+    collection of GeneSet classes.
+
+    ...
+
+    Attributes
+    ----------
+    gene_set_list : list[GeneSet]
+        A list of GeneSet instances
+    score : float
+        The overall score of the individual
+
+    Methods
+    -------
+    get_score()
+        Updates the individuals score
+    """
     def __init__(self, gene_set_list):
         self.gene_set_list = gene_set_list
-        self.soap_string_list = [get_parameter_string(gene_set) for gene_set in gene_set_list]
         self.score = 0
 
     def __str__(self):
@@ -92,108 +185,243 @@ class Individual:
         return self.score > other.score
 
     def __eq__(self, other):
-        return self.soap_string_list == other.soap_string_list
+        return self.soap_string_list==other.soap_string_list
 
     def __hash__(self):
         return hash(tuple(self.soap_string_list))
 
-    def breed(self, other):
-        for genes in zip(self.gene_set_list, other.gene_set_list):
-            print(f"breeding {genes}")
-            genes[0].breed(genes[1])
-            print(f"created {genes}")
-        return Individual(self.gene_set_list)
-
     def get_score(self):
+        """Updates the Individuals score
+
+        This can be computationally expensive, so this method is only
+        called when it is necessary to access the score of the individual.
+        This method does not return anything and instead updates the score
+        attribute.
+        """
+        # Actual function commented out while testing
         self.score = self.gene_set_list[0].cutoff + self.gene_set_list[1].cutoff
         # soaps, target_dataframergets = comp_soaps(self.soap_string_list, conf_s, target_dataframe)
         # self.score = comp_score(soaps, targets)
 
 
 class Population:
-    def __init__(self, best_sample, lucky_few, population_size, number_of_children, list_of_gene_parameters):
+    """
+    A class that represents the entire population of Individuals
+
+    ...
+
+    Attributes
+    ----------
+    best_sample : int
+        The number of best scoring Individuals that are used as breeders
+        for the next generation
+    lucky_few : int
+        The number of lucky Individuals that are used as breeders for the
+        next generation. These can not be any of the Individuals that are
+        selected as the best Individuals
+    population_size : int
+        The total size of the population
+    number_of_children : int
+        The number of children to be produced from breeding
+    list_of_gene_parameters : list[GeneSet]
+        A list of the GeneSet instances used to create this Individual
+    maximise_scores : bool
+        Determines whether the SOAP_GAS algorithm will minimise or maximise
+        scores (default False)
+    population : set[Individuals]
+        The entire population of individuals that make up the current
+        generation of the SOAP_GAS algorithm
+    Methods
+    -------
+    print_population()
+        Prints the population to the console in a way that is easy to read
+    initialise_population()
+        Initialises the population attribute
+    next_generation()
+        Updates the class with a new random population
+    get_population_scores()
+        Gets the scores for all the Individuals in the population
+    """
+    def __init__(self, best_sample, lucky_few, population_size,
+                 number_of_children, list_of_gene_parameters,
+                 maximise_scores=False):
         self.best_sample = best_sample
         self.lucky_few = lucky_few
         self.number_of_children = number_of_children
         self.population_size = population_size
         self.list_of_gene_parameters = list_of_gene_parameters
+        self.maximise_scores = maximise_scores
         self.population = set()
 
+    def print_population(self):
+        """Prints the population to the console in a way that is easy to read
+
+        This method does not return anything and instead prints text to
+        the console.
+        """
+        for ind in self.population:
+            print(f"{ind} has a score of: {ind.score}")
+
     def initialise_population(self):
+        """Initialises the population attribute
+
+        This is done by creating unique random Individual instances and
+        adding them to the population attribute until the population
+        reaches the specified size. This method does not return anything
+        and instead modifies the population attribute.
+        """
+        self.population = set()
         while len(self.population) < self.population_size:
-            gene_set_list = [gene_parameters.make_gene_set() for gene_parameters in self.list_of_gene_parameters]
+            gene_set_list = [gene_parameters.make_gene_set() for
+                             gene_parameters in self.list_of_gene_parameters]
             self.population.add(Individual(gene_set_list))
+        self.get_population_scores()
         print(f"Initial population of size {self.population_size} generated")
 
     def next_generation(self):
-        sorted_population = sorted(self.population)
+        """Updates the class with a new random population
+
+        This is done by breeding a set of Individuals comprised of a
+        specified number of the best Individuals and lucky Individuals.
+
+        The protocol for generating the next generation of Individuals is
+        as follows:
+        1) The specified number of the best Individuals are selected and put
+        into a breeding pool.
+        2) The specified number of lucky Individuals are selected and added
+        to the breeding pool. NOTE: These can not be selected if they are
+        already in the breeding pool
+        3) Initially, the Individuals in the breeding pool are paired up
+        with the higher scoring Individuals being partners with each other
+        4) Each set of partners produces one child Individual and adds it
+        to the population for the next generation. If the child
+        Individual already exists in the new population, this set of
+        partners will continue to produce children and try to add it to the
+        new population until a unique child is added.
+        5) Once all sets of partners have produced one child, the breeding
+        pool is shuffled. This means that for the creation of future
+        children, it is not necessarily the best performing Individuals
+        that breed with each other, Individuals in the breeding pool are
+        paired up randomly.
+        6) Loop back to step 4) and repeat the process until the population
+        is the same size as it was before breeding occurred.
+        7) Get the scores for all the Individuals in the new population.
+        This is done now because if the scores were calculated upon
+        creation of a new individual, computational power would be wasted
+        on duplicate Individuals.
+        """
+        sorted_population = sorted(self.population,
+                                   reverse=self.maximise_scores)
         best_individuals = sorted_population[:self.best_sample]
-        lucky_individuals = sample(sorted_population[self.best_sample:], self.lucky_few)
+        lucky_individuals = sample(sorted_population[self.best_sample:],
+                                   self.lucky_few)
         next_generation_parents = best_individuals + lucky_individuals
         self.population = set()
         for _ in range(self.number_of_children):
-            shuffle(next_generation_parents)
-            it = iter(next_generation_parents)  # Creates an iterator from randomly shuffled parents
+            it = iter(next_generation_parents)
             while True:
                 try:
                     parent_one = next(it)
                     parent_two = next(it)
-                    child = parent_one.breed(parent_two)
-                    # print(f"Breeding {parent_one} with {parent_two}")
-                    # print(f"Created child {child}")
-                    # Tries to create a child and add it to the population. If the child already exists in the
-                    # population then it creates another child until the new child does not exist in the population.
+                    child = breed_individuals(parent_one, parent_two)
                     while child in self.population:
-                        child = parent_one.breed(parent_two)
-                        print("CHILD ALREADY EXISTS")
-                        break
+                        child = breed_individuals(parent_one, parent_two)
                     self.population.add(child)
                 except StopIteration:
                     break
+        shuffle(next_generation_parents)
         self.get_population_scores()
-        for ind in self.population:
-            print(f"{ind} has a score of {ind.score}")
+
     def get_population_scores(self):
+        """Gets the scores for all the Individuals in the population
+
+
+        Updates all the Individuals in the population attribute with their
+        scores. This can be computationally expensive, so it is only
+        performed when necessary. Ths method does not return anything and
+        instead updates the population attribute.
+        """
         for individual in self.population:
             individual.get_score()
 
 
+def breed_genes(gene_set_one, gene_set_two):
+    """Function to breed two GeneSets
+
+    Breeds two GeneSet instances with each other to create a new GeneSet
+    instance that is a combination of both the parents.
+
+    Parameters
+    ----------
+    gene_set_one : GeneSet
+        The first GeneSet instance to be used for breeding
+    gene_set_two : GeneSet
+        The second GeneSet instance to be used for breeding
+
+    Returns
+    -------
+    GeneSet
+        A GeneSet instance that is a combination of both parents
+
+    Raises
+    ------
+    TypeError
+        If two GeneSets that were created using different GeneParameter
+        values, they will not be able to breed with each other
+    """
+    if gene_set_one.gene_parameters != gene_set_two.gene_parameters:
+        raise TypeError("Trying to breed genes with different "
+                        "gene parameters")
+
+    cutoff = choice([gene_set_one.cutoff, gene_set_two.cutoff])
+    l_max = choice([gene_set_one.l_max, gene_set_two.l_max])
+    n_max = choice([gene_set_one.n_max, gene_set_two.n_max])
+    sigma = choice([gene_set_one.sigma, gene_set_two.sigma])
+    new_gene_set = GeneSet(gene_set_one.gene_parameters, cutoff,
+                           l_max, n_max, sigma)
+    new_gene_set.mutate_gene()
+    return new_gene_set
+
+
+def breed_individuals(individual_one, individual_two):
+    """Function to breed two Individuals
+
+    Breeds two Individual instances with each other to create a new Individual
+    instance that is a combination of both the parents.
+
+    Parameters
+    ----------
+    individual_one : Individual
+        The first GeneSet instance to be used for breeding
+    individual_two : Individual
+        The second GeneSet instance to be used for breeding
+
+    Returns
+    -------
+    Individual
+        An Individual instance that is a combination of both parents
+    """
+    new_gene_set_list = []
+    for genes in zip(individual_one.gene_set_list, individual_two.gene_set_list):
+        new_gene_set_list.append(breed(genes[0], genes[1]))
+    return Individual(new_gene_set_list)
+
 def comp_score(soaps, targets):
+    """
+    Function to compute the score given soaps and targets. Still needs to be done
+    @param soaps:
+    @param targets:
+    @return:
+    """
     return int(soaps)
 
 
-# def comp_random_genes(set_of_gene_parameters: GeneParameters) -> GeneSet:
-#     """
-#     This takes the parameters given in the input file and returns an instance of
-#     an Genes class with random parameters.
-#     """
-#     gene_parameters = kwargs
-#     gene_parameters['cutoff'] = np.random.randint(min_cutoff, max_cutoff)
-#     gene_parameters['l_max'] = np.random.randint(lower, upper)
-#     gene_parameters['n_max'] = np.random.randint(lower, upper)
-#     gene_parameters['sigma'] = round(np.random.uniform(min_sigma, max_sigma), 2)
-#     return GeneSet(**gene_parameters)
-
-
-def initialise_gene_set(pop_size: int) -> list[GeneSet]:
+def comp_soaps(parameter_string_list, conf_s, data):
     """
-    Creates the initial population of size popSize by generating a GeneSet
-    for each set of parameters in the input file
+    Function to compute the Soaps, maybe add to the Individual class?
     """
-    return [[comp_random_genes(**desc_dict) for desc_dict in desc_dict_list] for _ in range(pop_size)]
-
-
-def get_population(list_of_Genes: list[list[GeneSet]]) -> list[Individual]:
-    """
-    This function creates a population of individuals based on the genes given as input
-    """
-    return [Individual(gene_set_list) for gene_set_list in list_of_Genes]
-
-
-def comp_soaps(parameter_string_list: list[str], conf_s: list, data: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Function to calculate the SOAP feature vector using the parameters of each individual
-    """
+    pass
+    # Actual function commented out while testing that everything works.
     # soap_array = []
     # targets = np.array(data["Target"])
     # for mol in conf_s:
@@ -202,15 +430,11 @@ def comp_soaps(parameter_string_list: list[str], conf_s: list, data: pd.DataFram
     #         soap += list(descriptors.Descriptor(parameter_string).calc(mol)['data'][0])
     #     soap_array.append(soap)
     # return np.array(soap_array), np.array(targets)
-    tempVal = 0
-    for parameter_string in parameter_string_list:
-        tempVal += int(parameter_string[20]) + int(parameter_string[28]) + int(parameter_string[36])
-    return np.array([tempVal]), np.array([9])
 
 
 def get_parameter_string(gene_set: GeneSet) -> str:
     """
-    Creates the string needed to generate SOAP descriptor
+    Dont think I need this, deleting soon
     """
     num_centre_atoms = gene_set.gene_parameters.centres.count(',') + 1
     num_neighbour_atoms = gene_set.gene_parameters.neighbours.count(',') + 1
@@ -220,6 +444,16 @@ def get_parameter_string(gene_set: GeneSet) -> str:
 
 
 def get_conf():
+    """Function to get the inputs required to get SOAP arrays
+
+    This function checks if the conf_s file exists, returns the ase
+    objects and a dataframe of targets if conf_s exists.
+    If it does not exist, creates the conf_s file and returns the same thing.
+
+    Returns
+    -------
+
+    """
     path = str(os.path.dirname(os.path.abspath(__file__))) + "/EXAMPLES/"
     if os.path.isfile(path + "conf_s.pkl"):
         print("conf_s file exists")
@@ -229,7 +463,8 @@ def get_conf():
             csv_path = Path(path + "database.csv").resolve(strict=True)
             xyz_folder_path = Path(path + "xyz/").resolve(strict=True)
         except FileExistsError:
-            print("Please make sure the xyz folder and database.csv file exist. Read the docs for more information.")
+            print("Please make sure the xyz folder and database.csv file "
+                  "exist. Read the docs for more information.")
         print("Generating conf")
         names_and_targets = pd.read_csv(csv_path)
         conf_s = []
@@ -244,90 +479,36 @@ def get_conf():
         return [conf_s, names_and_targets]
 
 
-def next_generation(previous_generation: list[Individual],
-                    best_sample: int,
-                    lucky_few: int,
-                    number_of_children: int) -> list[Individual]:
-    # Delete duplicate individuals and replace them with new random ones
-    unique_individuals = set(previous_generation)
-    print(f"{len(previous_generation) - len(unique_individuals)} duplicate individuals found")
-    while len(previous_generation) != len(unique_individuals):
-        unique_individuals.add(Individual([comp_random_genes(**desc_dict) for desc_dict in desc_dict_list]))
-    print("Non unique individuals replaced with new individuals")
-    sorted_individuals = sorted(list(unique_individuals))
-    parents = select_from_population(sorted_individuals, best_sample, lucky_few)
-
-    return sorted_individuals
-
-
-def breed(parents: list[Individual]) -> list[Individual]:
-    children = []
-    shuffle(parents)
-    it = iter(parents)
-    # children.append(it.)
-    pass
-
-
-def select_from_population(sorted_individuals: list[Individual], best_sample: int, lucky_few: int) -> list[Individual]:
-    best_individuals = sorted_individuals[:best_sample]
-    lucky_individuals = sample(sorted_individuals[best_sample:], lucky_few)
-    # write to file "THE BEST INDIVIDUALS ARE
-    return best_individuals + lucky_individuals
-
-
 def Main():
-    descDict1 = {'lower': 2, 'upper': 10, 'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}',
-                 'mu': 0, 'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'average': True, 'mutationChance': 0.15, 'min_cutoff': 5,
-                 'max_cutoff': 10, 'min_sigma': 0.1, 'max_sigma': 0.9}
-    descDict2 = {'lower': 2, 'upper': 10, 'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}',
-                 'mu': 0,
-                 'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'average': True, 'mutationChance': 0.15, 'min_cutoff': 5,
-                 'max_cutoff': 10, 'min_sigma': 0.1, 'max_sigma': 0.9}
-
     pop_size = 20
     global conf_s, target_dataframe, desc_dict_list
     desc_dict_list = [descDict1, descDict2]
     conf_s, target_dataframe = get_conf()
-    init_pop = initialise_gene_set(pop_size)
-    print(init_pop[0][1])
-    individual_pop = get_population(init_pop)
-    print([ind.score for ind in sorted(individual_pop)])
-    print([ind.__hash__() for ind in sorted(individual_pop)])
-    next_gen = next_generation(individual_pop, 1, 2, 3)
-    print(len(next_gen))
-    # sd = ['soap average cutoff=8 l_max=2 n_max=3 atom_sigma=0.31 n_Z=7 Z={8, 7, 6, 1, 16, 17, 9} n_species=7 species_Z={8, 7, 6, 1, 16, 17, 9} mu=0 mu_hat=0 nu=2 nu_hat=0', 'soap average cutoff=9 l_max=5 n_max=2 atom_sigma=0.36 n_Z=7 Z={8, 7, 6, 1, 16, 17, 9} n_species=7 species_Z={8, 7, 6, 1, 16, 17, 9} mu=0 mu_hat=0 nu=2 nu_hat=0']
-    # a, b = comp_soaps(sd, conf_s, target_dataframe)
-    # print(a.shape)
-    # dict_genes1 = {'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}', 'mu': 0, 'mu_hat': 0,
-    #                'nu': 2, 'nu_hat': 0, 'average': True, 'mutationChance': 0.15, 'cutoff': 7, 'l_max': 4, 'n_max': 5,
-    #                'sigma': 0.48}
-    # dict_genes2 = {'centres': '{6, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}', 'mu': 0, 'mu_hat': 0,
-    #                'nu': 2, 'nu_hat': 0, 'average': True, 'mutationChance': 0.15, 'cutoff': 7, 'l_max': 4, 'n_max': 5,
-    #                'sigma': 0.48}
-    # test_gene1 = Genes(**dict_genes1)
-    # test_gene2 = Genes(**dict_genes2)
-    # gene_set_list = [test_gene1, test_gene2]
-    # individual1 = Individual(gene_set_list)
-    # individual2 = Individual(gene_set_list)
-    # print(individual1 == individual2)
-    # print(vars(individual1))
 
 
 # Main()
 descDict1 = {'lower': 1, 'upper': 50, 'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}',
-             'mu': 0, 'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'mutation_chance': 0.0, 'min_cutoff': 1,
+             'mu': 0, 'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'mutation_chance': 0.15, 'min_cutoff': 1,
              'max_cutoff': 50, 'min_sigma': 0.1, 'max_sigma': 0.9}
 descDict2 = {'lower': 51, 'upper': 100, 'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}',
              'mu': 0,
-             'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'mutation_chance': 0.0, 'min_cutoff': 51,
+             'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'mutation_chance': 0.15, 'min_cutoff': 51,
              'max_cutoff': 100, 'min_sigma': 1.1, 'max_sigma': 1.9}
 
+num_gens = 1000
 params1 = GeneParameters(**descDict1)
 params2 = GeneParameters(**descDict2)
-population = Population(2, 1, 5, 5, [params1, params2])
-print(population.population)
+population = Population(4, 2, 12, 4, [params1, params2], False)
+population.print_population()
+print("Initialising population")
 population.initialise_population()
-print(population.population)
-population.next_generation()
+population.print_population()
+for _ in range(num_gens):
+    population.next_generation()
+    population.print_population()
+    print("######################################")
+
+# best_sample, lucky_few, population_size, number_of_children,
+# population.next_generation()
 # a = comp_random_genes(**descDict2)
 # a.mutate_gene()
