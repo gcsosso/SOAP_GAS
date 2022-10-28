@@ -1,8 +1,7 @@
 import pandas as pd
-
 from dataclasses import dataclass
 from quippy import descriptors
-import ase.io
+import ase
 import subprocess
 from pathlib import Path
 import os
@@ -166,8 +165,8 @@ class GeneSet:
                "atom_sigma={sigma} n_Z={0} Z={centres} " \
                "n_species={1} species_Z={neighbours} mu={mu} mu_hat={" \
                "mu_hat} nu={nu} nu_hat={nu_hat}".format(
-            num_centre_atoms, num_neighbour_atoms,
-            **{**vars(self.gene_parameters), **vars(self)})
+                num_centre_atoms, num_neighbour_atoms,
+                **{**vars(self.gene_parameters), **vars(self)})
 
 
 class Individual:
@@ -190,6 +189,8 @@ class Individual:
     -------
     get_score()
         Updates the individuals score
+    check_same_gene_parameters(other : Individual)
+        Checks if other is an Individual created from the same gene parameters
     """
 
     def __init__(self, gene_set_list):
@@ -235,9 +236,28 @@ class Individual:
         # Actual function commented out while testing
         self.score = self.gene_set_list[0].cutoff + self.gene_set_list[
             1].cutoff
-        # soaps, target_dataframergets = comp_soaps(self.soap_string_list,
+        # soaps, target_dataframe = comp_soaps(self.soap_string_list,
         # conf_s, target_dataframe)
         # self.score = comp_score(soaps, targets)
+
+    def check_same_gene_parameters(self, other):
+        """Checks if other is an Individual created from the same gene parameters
+
+        Parameters
+        ----------
+        other : Individual
+            The Individual to compare gene parameters
+
+        Returns
+        -------
+        bool
+            Returns True if both Individuals are created from the same list of GeneParameter classes,
+            otherwise returns False
+        """
+        for pair in zip(self.gene_set_list, other.gene_set_list):
+            if pair[0].gene_parameters != pair[1].gene_parameters:
+                return False
+        return True
 
 
 class Population:
@@ -267,6 +287,8 @@ class Population:
     population : set[Individuals]
         The entire population of individuals that make up the current
         generation of the SOAP_GAS algorithm
+
+
     Methods
     -------
     print_population()
@@ -277,6 +299,8 @@ class Population:
         Updates the class with a new random population
     get_population_scores()
         Gets the scores for all the Individuals in the population
+    sort_population()
+        Sorts the population attribute based on best score
     """
 
     def __init__(self, best_sample, lucky_few, population_size,
@@ -296,13 +320,13 @@ class Population:
                f"{self.list_of_gene_parameters}, {self.maximise_scores})"
 
     def __eq__(self, other):
-        return (self.best_sample==other.best_sample and
-                self.lucky_few==other.lucky_few and
-                self.number_of_children==other.number_of_children and
-                self.population_size==other.population_size and
-                self.list_of_gene_parameters==
+        return (self.best_sample == other.best_sample and
+                self.lucky_few == other.lucky_few and
+                self.number_of_children == other.number_of_children and
+                self.population_size == other.population_size and
+                self.list_of_gene_parameters ==
                 other.list_of_gene_parameters and
-                self.maximise_scores==other.maximise_scores)
+                self.maximise_scores == other.maximise_scores)
 
     def print_population(self):
         """Prints the population to the console in a way that is easy to read
@@ -406,6 +430,32 @@ class Population:
 
 
 class BestHistory:
+    """
+    A class that stores the best Individuals after each generation
+
+    ...
+
+    Attributes
+    ----------
+    history : list[Individual]
+        A list of the Individual with the best score after each generation
+    converged : bool
+        True if the SOAP_GAS algorithm has converged
+    early_stop : float
+        The threshold used to test convergence
+    early_number : int
+        The number of generations that must converge before stopping
+    min_generations : int
+        The minimum number of generations before stopping
+
+    Methods
+    -------
+    append()
+        Used to append the best Individual of a Population to the history
+    _check_if_converged()
+        Tests to see if the algorithm has converged (hidden method)
+    """
+
     def __init__(self, early_stop=None, early_number=None,
                  min_generations=None):
         self.history = []
@@ -415,18 +465,36 @@ class BestHistory:
         self.min_generations = min_generations
 
     def append(self, population):
+        """Method to append the best Individual of a Population to the history attribute
+
+        This method does not return anything, but it adds an Individual to the history attribute.
+
+        Raises
+        ------
+        TypeError
+            If a class that is not a Population is appended to the history attribute
+        TypeError
+            If a Population that is formed using different gene_parameters is appended to the history attribute
+        ValueError
+            If min_generations is <= early_number
+
+        @param population:
+        @return:
+        """
         if not isinstance(population, Population):
             raise TypeError("You can only append a Population to the "
                             "BestHistory")
         if self.history:
-            if not self.history[-1] == population.population[0]:
+            if not self.history[-1].check_same_gene_parameters(list(population.population)[0]):
                 raise TypeError("Trying to append population of different "
                                 "type")
         population.sort_population()
-        self.history.append(population.population[0])
-        self._check_if_converged()
+        best_ind = population.population[0]
+        self.history.append(best_ind)
+        print(f"Best Individual {str(best_ind)} with a score of {best_ind.score} added to history")
+        self._check_if_converged(population.maximise_scores)
 
-    def _check_if_converged(self):
+    def _check_if_converged(self, maximise_scores):
         if not (self.early_stop and self.early_number and
                 self.min_generations):
             return
@@ -436,18 +504,12 @@ class BestHistory:
                              "of generations.")
         if len(self.history) < self.min_generations:
             return
-        try:
-            maximise_scores = self.history[0].maximise_scores
-            sorted_history = sorted(self.history, reverse=maximise_scores)
-        except:
-            return
+        sorted_history = sorted(self.history, reverse=maximise_scores)
         best_score = sorted_history[0]
         if all(best_score.score - ind.score <= self.early_stop for ind in
                sorted_history[:self.early_number]):
             print("SOAP_GAS has converged")
             self.converged = True
-
-
 
 
 def breed_genes(gene_set_one, gene_set_two):
@@ -474,7 +536,7 @@ def breed_genes(gene_set_one, gene_set_two):
         If two GeneSets that were created using different GeneParameter
         values, they will not be able to breed with each other
     """
-    if gene_set_one.gene_parameters!=gene_set_two.gene_parameters:
+    if gene_set_one.gene_parameters != gene_set_two.gene_parameters:
         raise TypeError("Trying to breed genes with different "
                         "gene parameters")
 
@@ -517,11 +579,9 @@ def comp_score(soaps, targets):
     """
     Function to compute the score given soaps and targets. Still needs to
     be done
-    @param soaps:
-    @param targets:
-    @return:
+
     """
-    return int(soaps)
+    pass
 
 
 def comp_soaps(parameter_string_list, conf_s, data):
@@ -567,9 +627,9 @@ def get_conf():
         names_and_targets = pd.read_csv(csv_path)
         conf_s = []
         for index, row in names_and_targets.iterrows():
-            xyzname = str(xyz_folder_path) + '/' + row['Name'] + '.xyz'
+            xyz_name = str(xyz_folder_path) + '/' + row['Name'] + '.xyz'
             subprocess.call(
-                "sed 's/CL/Cl/g' " + xyzname + " | sed 's/LP/X/g' > tmp.xyz",
+                "sed 's/CL/Cl/g' " + xyz_name + " | sed 's/LP/X/g' > tmp.xyz",
                 shell=True)
             conf = ase.io.read("tmp.xyz")
             conf_s.append(conf)
