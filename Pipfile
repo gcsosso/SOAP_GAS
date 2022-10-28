@@ -23,6 +23,7 @@ scipy = "==1.9.3"
 six = "==1.16.0"
 
 [dev-packages]
+notebook = "*"
 
 [requires]
 python_version = "3.9"

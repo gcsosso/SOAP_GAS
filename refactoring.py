@@ -106,6 +106,8 @@ class GeneSet:
     -------
     mutate_gene()
         Mutates the GeneSet instance
+    get_soap_string()
+        Returns a string that can be used as an input to generate SOAPs
     """
 
     def __init__(self, gene_parameters, cutoff, l_max, n_max, sigma):
@@ -142,6 +144,31 @@ class GeneSet:
         self.sigma = choices([self.sigma, new_mutation.sigma],
                              weights=weights, k=1)[0]
 
+    def get_soap_string(self):
+        """Returns a string that can be used as an input to generate SOAPs
+
+        This function calculates the number of centre and neighbour atoms
+        and then uses the parameters of the class to generate a string that
+        can be used to generate a SOAP descriptor.
+
+        Returns
+        -------
+        str
+            A string that contains all the parameters required to create a
+            SOAP descriptor array
+        """
+        num_centre_atoms = sum(c.isdigit() for c in
+                               self.gene_parameters.centres)
+
+        num_neighbour_atoms = sum(n.isdigit() for n in
+                                  self.gene_parameters.neighbours)
+        return "soap average cutoff={cutoff} l_max={l_max} n_max={n_max} " \
+               "atom_sigma={sigma} n_Z={0} Z={centres} " \
+               "n_species={1} species_Z={neighbours} mu={mu} mu_hat={" \
+               "mu_hat} nu={nu} nu_hat={nu_hat}".format(
+            num_centre_atoms, num_neighbour_atoms,
+            **{**vars(self.gene_parameters), **vars(self)})
+
 
 class Individual:
     """
@@ -156,21 +183,28 @@ class Individual:
         A list of GeneSet instances
     score : float
         The overall score of the individual
+    soap_string_list : list[str]
+        A list of strings where the strings are used to create a SOAP array
 
     Methods
     -------
     get_score()
         Updates the individuals score
     """
+
     def __init__(self, gene_set_list):
         self.gene_set_list = gene_set_list
         self.score = 0
+        self.soap_string_list = [gene_set.get_soap_string() for gene_set in
+                                 gene_set_list]
 
     def __str__(self):
-        return f"Individual({[str(gene_set) for gene_set in self.gene_set_list]})"
+        return f"Individual(" \
+               f"{[str(gene_set) for gene_set in self.gene_set_list]})"
 
     def __repr__(self):
-        return f"({[repr(gene_set) for gene_set in self.gene_set_list]})"
+        return f"Individual" \
+               f"({[repr(gene_set) for gene_set in self.gene_set_list]})"
 
     def __le__(self, other):
         return self.score <= other.score
@@ -185,7 +219,7 @@ class Individual:
         return self.score > other.score
 
     def __eq__(self, other):
-        return self.soap_string_list==other.soap_string_list
+        return self.gene_set_list == other.gene_set_list
 
     def __hash__(self):
         return hash(tuple(self.soap_string_list))
@@ -199,8 +233,10 @@ class Individual:
         attribute.
         """
         # Actual function commented out while testing
-        self.score = self.gene_set_list[0].cutoff + self.gene_set_list[1].cutoff
-        # soaps, target_dataframergets = comp_soaps(self.soap_string_list, conf_s, target_dataframe)
+        self.score = self.gene_set_list[0].cutoff + self.gene_set_list[
+            1].cutoff
+        # soaps, target_dataframergets = comp_soaps(self.soap_string_list,
+        # conf_s, target_dataframe)
         # self.score = comp_score(soaps, targets)
 
 
@@ -242,6 +278,7 @@ class Population:
     get_population_scores()
         Gets the scores for all the Individuals in the population
     """
+
     def __init__(self, best_sample, lucky_few, population_size,
                  number_of_children, list_of_gene_parameters,
                  maximise_scores=False):
@@ -252,6 +289,20 @@ class Population:
         self.list_of_gene_parameters = list_of_gene_parameters
         self.maximise_scores = maximise_scores
         self.population = set()
+
+    def __repr__(self):
+        return f"Population({self.best_sample}, {self.lucky_few}, " \
+               f"{self.population_size}, {self.number_of_children}, " \
+               f"{self.list_of_gene_parameters}, {self.maximise_scores})"
+
+    def __eq__(self, other):
+        return (self.best_sample==other.best_sample and
+                self.lucky_few==other.lucky_few and
+                self.number_of_children==other.number_of_children and
+                self.population_size==other.population_size and
+                self.list_of_gene_parameters==
+                other.list_of_gene_parameters and
+                self.maximise_scores==other.maximise_scores)
 
     def print_population(self):
         """Prints the population to the console in a way that is easy to read
@@ -344,6 +395,60 @@ class Population:
         for individual in self.population:
             individual.get_score()
 
+    def sort_population(self):
+        """Sorts the population
+
+        This method does not return anything and instead modifies the
+        population attribute.
+        """
+        self.population = sorted(self.population,
+                                 reverse=self.maximise_scores)
+
+
+class BestHistory:
+    def __init__(self, early_stop=None, early_number=None,
+                 min_generations=None):
+        self.history = []
+        self.converged = False
+        self.early_stop = early_stop
+        self.early_number = early_number
+        self.min_generations = min_generations
+
+    def append(self, population):
+        if not isinstance(population, Population):
+            raise TypeError("You can only append a Population to the "
+                            "BestHistory")
+        if self.history:
+            if not self.history[-1] == population.population[0]:
+                raise TypeError("Trying to append population of different "
+                                "type")
+        population.sort_population()
+        self.history.append(population.population[0])
+        self._check_if_converged()
+
+    def _check_if_converged(self):
+        if not (self.early_stop and self.early_number and
+                self.min_generations):
+            return
+        if self.min_generations <= self.early_number:
+            raise ValueError("The minimum number of 'converged' generations"
+                             " must be less than the total number "
+                             "of generations.")
+        if len(self.history) < self.min_generations:
+            return
+        try:
+            maximise_scores = self.history[0].maximise_scores
+            sorted_history = sorted(self.history, reverse=maximise_scores)
+        except:
+            return
+        best_score = sorted_history[0]
+        if all(best_score.score - ind.score <= self.early_stop for ind in
+               sorted_history[:self.early_number]):
+            print("SOAP_GAS has converged")
+            self.converged = True
+
+
+
 
 def breed_genes(gene_set_one, gene_set_two):
     """Function to breed two GeneSets
@@ -369,7 +474,7 @@ def breed_genes(gene_set_one, gene_set_two):
         If two GeneSets that were created using different GeneParameter
         values, they will not be able to breed with each other
     """
-    if gene_set_one.gene_parameters != gene_set_two.gene_parameters:
+    if gene_set_one.gene_parameters!=gene_set_two.gene_parameters:
         raise TypeError("Trying to breed genes with different "
                         "gene parameters")
 
@@ -402,13 +507,16 @@ def breed_individuals(individual_one, individual_two):
         An Individual instance that is a combination of both parents
     """
     new_gene_set_list = []
-    for genes in zip(individual_one.gene_set_list, individual_two.gene_set_list):
-        new_gene_set_list.append(breed(genes[0], genes[1]))
+    for genes in zip(individual_one.gene_set_list,
+                     individual_two.gene_set_list):
+        new_gene_set_list.append(breed_genes(genes[0], genes[1]))
     return Individual(new_gene_set_list)
+
 
 def comp_score(soaps, targets):
     """
-    Function to compute the score given soaps and targets. Still needs to be done
+    Function to compute the score given soaps and targets. Still needs to
+    be done
     @param soaps:
     @param targets:
     @return:
@@ -427,20 +535,10 @@ def comp_soaps(parameter_string_list, conf_s, data):
     # for mol in conf_s:
     #     soap = []
     #     for parameter_string in parameter_string_list:
-    #         soap += list(descriptors.Descriptor(parameter_string).calc(mol)['data'][0])
+    #         soap += list(descriptors.Descriptor(parameter_string).calc(
+    #         mol)['data'][0])
     #     soap_array.append(soap)
     # return np.array(soap_array), np.array(targets)
-
-
-def get_parameter_string(gene_set: GeneSet) -> str:
-    """
-    Dont think I need this, deleting soon
-    """
-    num_centre_atoms = gene_set.gene_parameters.centres.count(',') + 1
-    num_neighbour_atoms = gene_set.gene_parameters.neighbours.count(',') + 1
-    return "soap average cutoff={cutoff} l_max={l_max} n_max={n_max} atom_sigma={sigma} n_Z={0} Z={centres} " \
-           "n_species={1} species_Z={neighbours} mu={mu} mu_hat={mu_hat} nu={nu} nu_hat={nu_hat}".format(
-        num_centre_atoms, num_neighbour_atoms, **{**vars(gene_set.gene_parameters), **vars(gene_set)})
 
 
 def get_conf():
@@ -470,45 +568,12 @@ def get_conf():
         conf_s = []
         for index, row in names_and_targets.iterrows():
             xyzname = str(xyz_folder_path) + '/' + row['Name'] + '.xyz'
-            subprocess.call("sed 's/CL/Cl/g' " + xyzname + " | sed 's/LP/X/g' > tmp.xyz", shell=True)
+            subprocess.call(
+                "sed 's/CL/Cl/g' " + xyzname + " | sed 's/LP/X/g' > tmp.xyz",
+                shell=True)
             conf = ase.io.read("tmp.xyz")
             conf_s.append(conf)
         subprocess.call("rm tmp.xyz", shell=True)
         print(f"saving conf to {path}conf_s.pkl")
         pkl.dump([conf_s, names_and_targets], open(path + 'conf_s.pkl', 'wb'))
         return [conf_s, names_and_targets]
-
-
-def Main():
-    pop_size = 20
-    global conf_s, target_dataframe, desc_dict_list
-    desc_dict_list = [descDict1, descDict2]
-    conf_s, target_dataframe = get_conf()
-
-
-# Main()
-descDict1 = {'lower': 1, 'upper': 50, 'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}',
-             'mu': 0, 'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'mutation_chance': 0.15, 'min_cutoff': 1,
-             'max_cutoff': 50, 'min_sigma': 0.1, 'max_sigma': 0.9}
-descDict2 = {'lower': 51, 'upper': 100, 'centres': '{8, 7, 6, 1, 16, 17, 9}', 'neighbours': '{8, 7, 6, 1, 16, 17, 9}',
-             'mu': 0,
-             'mu_hat': 0, 'nu': 2, 'nu_hat': 0, 'mutation_chance': 0.15, 'min_cutoff': 51,
-             'max_cutoff': 100, 'min_sigma': 1.1, 'max_sigma': 1.9}
-
-num_gens = 1000
-params1 = GeneParameters(**descDict1)
-params2 = GeneParameters(**descDict2)
-population = Population(4, 2, 12, 4, [params1, params2], False)
-population.print_population()
-print("Initialising population")
-population.initialise_population()
-population.print_population()
-for _ in range(num_gens):
-    population.next_generation()
-    population.print_population()
-    print("######################################")
-
-# best_sample, lucky_few, population_size, number_of_children,
-# population.next_generation()
-# a = comp_random_genes(**descDict2)
-# a.mutate_gene()
