@@ -21,6 +21,8 @@ pytz = "==2022.5"
 quippy-ase = "==0.9.10"
 scipy = "==1.9.3"
 six = "==1.16.0"
+sklearn = "*"
+tensorflow = "*"
 
 [dev-packages]
 notebook = "*"

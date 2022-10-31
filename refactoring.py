@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.model_selection import RepeatedKFold
 from dataclasses import dataclass
 from quippy import descriptors
 import ase
@@ -156,11 +157,13 @@ class GeneSet:
             A string that contains all the parameters required to create a
             SOAP descriptor array
         """
-        num_centre_atoms = sum(c.isdigit() for c in
-                               self.gene_parameters.centres)
+        num_centre_atoms = sum(c.strip().isdigit() for c in
+                               self.gene_parameters.centres[
+                               1:-1].split(','))
 
-        num_neighbour_atoms = sum(n.isdigit() for n in
-                                  self.gene_parameters.neighbours)
+        num_neighbour_atoms = sum(n.strip().isdigit() for n in
+                                  self.gene_parameters.neighbours[
+                                  1:-1].split(','))
         return "soap average cutoff={cutoff} l_max={l_max} n_max={n_max} " \
                "atom_sigma={sigma} n_Z={0} Z={centres} " \
                "n_species={1} species_Z={neighbours} mu={mu} mu_hat={" \
@@ -198,6 +201,8 @@ class Individual:
         self.score = 0
         self.soap_string_list = [gene_set.get_soap_string() for gene_set in
                                  gene_set_list]
+        self.soaps = None
+        self.targets = None
 
     def __str__(self):
         return f"Individual(" \
@@ -258,6 +263,22 @@ class Individual:
             if pair[0].gene_parameters != pair[1].gene_parameters:
                 return False
         return True
+
+    def comp_soaps(self, conf_s, data):
+        """
+        Function to compute the Soaps, maybe add to the Individual class?
+        """
+        soap_array = []
+        targets = np.array(data["Target"])
+        for mol in conf_s:
+            print(f"Getting soap for {mol}")
+            soap = []
+            for parameter_string in self.soap_string_list:
+                soap += list(descriptors.Descriptor(parameter_string).calc(
+                mol)['data'][0])
+            soap_array.append(soap)
+        self.soaps = np.array(soap_array)
+        self.targets = np.array(targets)
 
 
 class Population:
