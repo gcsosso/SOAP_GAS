@@ -3,6 +3,7 @@ from sklearn.model_selection import RepeatedKFold
 from dataclasses import dataclass
 from quippy import descriptors
 import ase
+from ase.geometry.analysis import Analysis
 import subprocess
 from pathlib import Path
 import os
@@ -65,6 +66,7 @@ class GeneParameters:
     max_cutoff: int
     min_sigma: float
     max_sigma: float
+    message_steps: int
 
     def make_gene_set(self):
         """ Generates a random set of genes in the form of a GeneSet class
@@ -79,7 +81,7 @@ class GeneParameters:
         l_max = np.random.randint(self.lower, self.upper)
         n_max = np.random.randint(self.lower, self.upper)
         sigma = round(np.random.uniform(self.min_sigma, self.max_sigma), 2)
-        return GeneSet(self, cutoff, l_max, n_max, sigma)
+        return GeneSet(self, cutoff, l_max, n_max, sigma, self.message_steps)
 
 
 class GeneSet:
@@ -110,12 +112,13 @@ class GeneSet:
         Returns a string that can be used as an input to generate SOAPs
     """
 
-    def __init__(self, gene_parameters, cutoff, l_max, n_max, sigma):
+    def __init__(self, gene_parameters, cutoff, l_max, n_max, sigma, message_steps):
         self.gene_parameters = gene_parameters
         self.cutoff = cutoff
         self.l_max = l_max
         self.n_max = n_max
         self.sigma = sigma
+        self.message_steps = message_steps
 
     def __str__(self):
         return f"[{self.cutoff}, {self.l_max}, {self.n_max}, {self.sigma}]"
@@ -164,12 +167,20 @@ class GeneSet:
         num_neighbour_atoms = sum(n.strip().isdigit() for n in
                                   self.gene_parameters.neighbours[
                                   1:-1].split(','))
-        return "soap average cutoff={cutoff} l_max={l_max} n_max={n_max} " \
-               "atom_sigma={sigma} n_Z={0} Z={centres} " \
-               "n_species={1} species_Z={neighbours} mu={mu} mu_hat={" \
-               "mu_hat} nu={nu} nu_hat={nu_hat}".format(
-                num_centre_atoms, num_neighbour_atoms,
-                **{**vars(self.gene_parameters), **vars(self)})
+        if self.message_steps == 0:
+            return "soap average cutoff={cutoff} l_max={l_max} n_max={n_max} " \
+                   "atom_sigma={sigma} n_Z={0} Z={centres} " \
+                   "n_species={1} species_Z={neighbours} mu={mu} mu_hat={" \
+                   "mu_hat} nu={nu} nu_hat={nu_hat}".format(
+                    num_centre_atoms, num_neighbour_atoms,
+                    **{**vars(self.gene_parameters), **vars(self)})
+        elif self.message_steps > 0:
+            return "soap cutoff={cutoff} l_max={l_max} n_max={n_max} " \
+                   "atom_sigma={sigma} n_Z={0} Z={centres} " \
+                   "n_species={1} species_Z={neighbours} mu={mu} mu_hat={" \
+                   "mu_hat} nu={nu} nu_hat={nu_hat}".format(
+                    num_centre_atoms, num_neighbour_atoms,
+                    **{**vars(self.gene_parameters), **vars(self)})
 
 
 class Individual:
@@ -203,6 +214,7 @@ class Individual:
                                  gene_set_list]
         self.soaps = None
         self.targets = None
+        self.message_steps = gene_set_list[0].message_steps
 
     def __str__(self):
         return f"Individual(" \
@@ -270,15 +282,61 @@ class Individual:
         """
         soap_array = []
         targets = np.array(data["Target"])
-        for mol in conf_s:
-            print(f"Getting soap for {mol}")
-            soap = []
-            for parameter_string in self.soap_string_list:
-                soap += list(descriptors.Descriptor(parameter_string).calc(
-                mol)['data'][0])
-            soap_array.append(soap)
+
+        if self.message_steps > 0:
+#             print("yes",self.message_steps)
+#             add message passing here
+            for mol in conf_s:
+                print(f"Getting soap for {mol}")
+                soap = []
+                for parameter_string in self.soap_string_list:
+                    print(parameter_string)
+                    a_soap = descriptors.Descriptor(parameter_string).calc(
+                             mol)['data']
+                    print(a_soap.shape)
+                    print(mpMatN(mol,self.message_steps).shape)
+                    mp_soap = np.mean(mpMatN(mol,self.message_steps)@a_soap, axis=0)
+                    soap += list(mp_soap)
+                soap_array.append(soap)
+        else:
+            for mol in conf_s:
+                print(f"Getting soap for {mol}")
+                soap = []
+                for parameter_string in self.soap_string_list:
+                    soap += list(descriptors.Descriptor(parameter_string).calc(
+                    mol)['data'][0])
+                soap_array.append(soap)
         self.soaps = np.array(soap_array)
         self.targets = np.array(targets)
+
+
+# Get matrix for a single message pass, input has to be an ase object
+def mpMat(mol):
+    # A = upper tri mat of adjacency matrix
+    A=Analysis(mol).adjacency_matrix
+
+    # A_ = adj matrix with self connections for each atom
+    A_=np.tril(np.transpose(A[0].toarray()),-1)+A[0].toarray()
+
+    # A_avg = matrix that averages the atomic features
+    D=np.zeros_like(A_)
+    np.fill_diagonal(D,A_.sum(axis=1))
+    A_avg=np.linalg.inv(D)@A_
+    return A_avg
+
+
+# Get matrix for N message passes
+def mpMatN(mol,N):
+    return np.linalg.matrix_power(mpMat(mol),N)
+
+
+# Return descriptor for molecule using average of atomic features
+def mol_descriptor(mol,N):
+    atom_features=[]
+    for atom in m.GetAtoms():
+        atom_features.append(atom_featurizer.encode(atom))
+    atom_features=np.array(atom_features)
+    return np.mean(mpMatN(mol,N)@atom_features,axis=0)
 
 
 class Population:
@@ -566,7 +624,8 @@ def breed_genes(gene_set_one, gene_set_two):
     n_max = choice([gene_set_one.n_max, gene_set_two.n_max])
     sigma = choice([gene_set_one.sigma, gene_set_two.sigma])
     new_gene_set = GeneSet(gene_set_one.gene_parameters, cutoff,
-                           l_max, n_max, sigma)
+                           l_max, n_max, sigma,
+                           gene_set_one.message_steps)
     new_gene_set.mutate_gene()
     return new_gene_set
 
