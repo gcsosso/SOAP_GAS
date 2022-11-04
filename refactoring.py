@@ -284,20 +284,35 @@ class Individual:
         targets = np.array(data["Target"])
 
         if self.message_steps > 0:
-#             print("yes",self.message_steps)
-#             add message passing here
-            for mol in conf_s:
-                print(f"Getting soap for {mol}")
+            try:
+                for mol in conf_s:
+                    # print(f"Getting soap for {mol}")
+                    soap = []
+                    for parameter_string in self.soap_string_list:
+                        # print(parameter_string)
+                        a_soap = descriptors.Descriptor(parameter_string).calc(
+                                 mol)['data']
+                        # print(a_soap.shape)
+                        # print(mpMatN(mol,self.message_steps).shape)
+                        mp_soap = np.mean(mpMatN(mol,self.message_steps)@a_soap, axis=0)
+                        soap += list(mp_soap)
+                    soap_array.append(soap)
+            except:
                 soap = []
                 for parameter_string in self.soap_string_list:
-                    print(parameter_string)
-                    a_soap = descriptors.Descriptor(parameter_string).calc(
-                             mol)['data']
-                    print(a_soap.shape)
-                    print(mpMatN(mol,self.message_steps).shape)
-                    mp_soap = np.mean(mpMatN(mol,self.message_steps)@a_soap, axis=0)
-                    soap += list(mp_soap)
-                soap_array.append(soap)
+                    try:
+                        a_soap = descriptors.Descriptor(parameter_string).calc(
+                                mol)['data']
+                        mp_soap = np.mean(mpMatN(mol,self.message_steps)@a_soap, axis=0)
+                        soap += list(mp_soap)
+                    except:
+                        a_soap = descriptors.Descriptor(parameter_string).calc(
+                                mol)['data']
+                        mp_matrix = mpMatN(mol,self.message_steps)
+                        print("Mismatch in MP and SOAP matrix shapes for: ",mol)
+                        print("SOAP shape of: {}".format(a_soap.shape))
+                        print("MP matrix shape of: {}".format(mp_matrix.shape))
+                        print("The SOAP string is: {}".format(parameter_string))
         else:
             for mol in conf_s:
                 print(f"Getting soap for {mol}")
