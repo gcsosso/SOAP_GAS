@@ -140,7 +140,7 @@ several parameters to tweak the genetic algorithm specifications.
 
 The specifics of the SOAP descriptor(s) to be optimised are contained in one or more Python dictionaries in the following form:
 ```
-SOAP_1_dictionary = {'lower' : int ,'upper' : int, 'centres' : '{int(, int, ..., int)}', 'neighbours' : '{(, int, ..., int)}', 'mu' : int, 'mu_hat': int, 'nu': int, 'nu_hat': int, 'average': Boolean, 'mutationChance': float, 'min_cutoff': float, 'max_cutoff' : float, 'min_sigma': float, 'max_sigma': float}
+SOAP_1_dictionary = {'lower' : int ,'upper' : int, 'centres' : '{int(, int, ..., int)}', 'neighbours' : '{(, int, ..., int)}', 'nu_R' : int, 'nu_S': int, 'mutation_chance': float, 'min_cutoff': float, 'max_cutoff' : float, 'min_sigma': float, 'max_sigma': float, 'message_steps':  int}
 ```
 Search space:  
   * `'lower'` : (integer) Lower limit for both n_max and l_max
@@ -156,28 +156,40 @@ Centres and neighbors
   * `'neighbours'` : '{(, int, ..., int)}'. Same as `'centres'`, only this specifies the neighbour atoms instead.
 
 Compression options
-The different compression options are discussed in Ref. [[2]](#2). Note that `'mu'`=0, `'mu_hat'`=0, `'nu'`=2 and `'nu_hat'`=0 is equivalent to not apply any compression at all.
-  * `'mu'` : int
-  * `'mu_hat'` : int
-  * `'nu'`: int
-  * `'nu_hat'`: int
-
-Average option (see Ref. [[1]](#1))
-  * `'average'`: Boolean
+The different compression options are discussed in Ref. [[2]](#2).
+  * `'nu_R'` : int
+  * `'nu_S'` : int
 
 SOAP example
-  * `descDict3 = {'lower' : 2,'upper' : 6,'centres' : '{8, 7, 6, 1, 16, 17, 9}','neighbours' : '{8, 7, 6, 1, 16, 17, 9}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 10, 'min_sigma':0.1, 'max_sigma':0.5})`
+  * `descDict = {'lower' : 2,'upper' : 6,'centres' : '{8, 7, 6, 1, 16, 17, 9}','neighbours' : '{8, 7, 6, 1, 16, 17, 9}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'mutation_chance': 0.15, 'min_cutoff':5, 'max_cutoff' : 10, 'min_sigma':0.1, 'max_sigma':0.5})`
 
-GA parameters
-* `numberOfGenerations`: integer. The number of generations the GA will run - unless the early stopping criterion (see below) is met.
-* `popSize: integer. Population size, i.e. number of individuals (i.e. number of SOAPs or *sets* of SOAPs) for each generation. This number does not change across different generations. The following equality has to apply at any time:  `popSize = numberChildren x (bestSample + luckyFew)/2`
-* `bestSample`: integer. The number of individuals that produced the best scores, to be picked as parents (together with some `luckyFew`, see below) for the breeding.
-* `luckyFew: integer. The number of individuals, selected randomly from the population notwithstanding their score, to be picked as parents for he breeding together with the `bestSample` ones (see above). Note that `bestSample+luckyFew` cannot be an odd number because the breeding process relies on pairs of individuals.
-* `numberChildren`: integer. The number of individuals generated via the breeding.
-* `'mutationChance'`: float between 0 and 1. Probability (0-1 implies a zero and a 100% chance, respectively) that each one of the SOAP parameteres within each SOAP will mutate from one generation to the next. The same probability is applied independently to each parameter.
-* `earlyStop`: float between 0 and 1. Tolerance criterion for any two generations to be considered equally accurate. In conjunction iwth earlyNum (see below) it determines the early stopping criterion for the GA. E.g., `earlyStop`=0.04 implies that two generations which best score is within 4% of each other are to be considered as equally accurate.
-* `earlyNum`: integer. Number of equally accurate generations (according to the `earlyStopa threshold, see above) that must be generated in order for the GA to stop. Note that the `earlyNum` do *not* need to be generated consecutively, but at any point along the GA instead.
-* `multiProcessing`: Boolean. Enables or Disables the usage of `concurrent.futures` to distribute the computation of the scores for different individuals across different CPUs.
+* `mutation_chance`: float between 0 and 1. Probability (0-1 implies a zero and a 100% chance, respectively) that each one of the SOAP parameters within each SOAP will mutate from one generation to the next. The same probability is applied independently to each parameter.
+
+Two additional dictionaries are required to run the genetic algorithm. These are population_parameters and history_parameters.
+
+population_parameters
+
+population_parameters = {'best_sample' : int ,'lucky_few' : int, 'population_size' : int, 'number_of_children': int, 'maximise_scores': bool}
+
+* `best_sample`: integer. The number of individuals that produced the best scores, to be picked as parents (together with some `luckyFew`, see below) for the breeding.
+* `lucky_few`: integer. The number of individuals, selected randomly from the population notwithstanding their score, to be picked as parents for he breeding together with the `bestSample` ones (see above). Note that `bestSample+luckyFew` cannot be an odd number because the breeding process relies on pairs of individuals.
+* `population_size`: integer. Population size, i.e. number of individuals (i.e. number of SOAPs or *sets* of SOAPs) for each generation. This number does not change across different generations. The following equality has to apply at any time:  `population_size = numberChildren x (bestSample + luckyFew)/2`
+* `number_of_children`: integer. The number of individuals generated via the breeding.
+* `maximise_scores`: bool. If true, the GA chooses the highest scoring individuals for breeding. If false then the lowest scoring individuals are chosen.
+
+history_parameters
+
+history_parameters = {'early_stop' : float, 'early_number' : int, 'min_generations' : int}
+
+* `early_stop`: float between 0 and 1. Tolerance criterion for any two generations to be considered equally accurate. In conjunction with earlyNum (see below) it determines the early stopping criterion for the GA. E.g., `earlyStop`=0.04 implies that two generations which best score is within 4% of each other are to be considered as equally accurate.
+* `early_number`: integer. Number of equally accurate generations (according to the `early_stop` threshold, see above) that must be generated in order for the GA to stop. Note that the `early_number` do *not* need to be generated consecutively, but at any point along the GA instead.
+* `min_generations`: The minimum number of generations that need to elapse before the GA will stop, even if the `early_stop` criteria is met.
+
+Finally, there are two global parameters that must be specified
+* `descList`: list[dict]. A list of the descriptor dictionaries used to calculate the SOAPs
+* `num_gens`: integer. The number of generations the GA will run - unless the early stopping criterion (see below) is met.
+
+An example input file is provided in the EXAMPLES folder.
 
 ## Output files
 * Backed up outputs
@@ -193,31 +205,28 @@ GA parameters
 ## Examples
 * Optimise the SOAP parameters of a C-C SOAP, with no compression:
 ```
-SOAP_CC = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6}','mu' : 0,'mu_hat': 0, 'nu':2, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
+SOAP_CC = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6}','nu_S' : 0,'nu_R': 0, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5, 'message_steps':0}
+
+population_parameters = {'best_sample': 6, lucky_few': 2, 'population_size': 20, 'number_of_children': 5, 'maximise_scores': False}
+
+history_parameters = {'early_stop': 0.03,
+                      'early_number': 3,
+                      'min_generations': 5}
 descList = [SOAP_CC]
-numberOfGenerations = 20
-popSize = 24
-bestSample = 6
-luckyFew = 2
-numberChildren = 6
-earlyStop = 0.04
-earlyNum = 5
-multiProcessing = True
+num_gens = 20
 ```
 
 * Optimise the SOAP parameters of two SOAP descriptors at the same time, using compression:
 ```
-SOAP_C_all = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 1, 'nu': 1, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
-SOAP_H_all = {'lower' : 2,'upper' : 10,'centres' : '{1}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','mu' : 0,'mu_hat': 1, 'nu':1, 'nu_hat':0, 'average':True, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5}
-descList = [SOAP_C_all, SOAP_H_all]
-numberOfGenerations = 20
-popSize = 24
-bestSample = 6
-luckyFew = 2
-numberChildren = 6
-earlyStop = 0.04
-earlyNum = 5
-multiProcessing = True
+SOAP_C_all = {'lower' : 2,'upper' : 10,'centres' : '{6}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','nu_S' : 0,'nu_R': 0, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5, 'message_steps':0}
+
+SOAP_H_all = {'lower' : 2,'upper' : 10,'centres' : '{1}','neighbours' : '{6, 15, 53, 7, 35, 1, 8, 17, 16, 9}','nu_S' : 0,'nu_R': 0, 'mutationChance': 0.15, 'min_cutoff':5, 'max_cutoff' : 20, 'min_sigma':0.1, 'max_sigma':1.5, 'message_steps':0}
+
+population_parameters = {'best_sample': 6, lucky_few': 2, 'population_size': 20, 'number_of_children': 5, 'maximise_scores': False}
+
+history_parameters = {'early_stop': 0.03,
+                      'early_number': 3,
+                      'min_generations': 5}
 ```
 
   ## References
