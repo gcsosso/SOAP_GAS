@@ -24,6 +24,7 @@ six = "==1.16.0"
 scikit-learn = "*"
 tensorflow = "*"
 pipfile = "*"
+ipykernel = "*"
 
 [dev-packages]
 notebook = "*"

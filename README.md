@@ -99,6 +99,7 @@ The `SOAP_GAS` code is written in Python (3.x).
 * The required packages can be installed using the pipenv package. This can be installed using: `pip install pipenv`
 * Install  the  required packages: `pipenv install Pipfile`
 * `pipenv shell` activates the environment and the code can be run within this environment.
+* (optional) If you want to use the usage_example.ipynb notebook, the following command is required to be able to use the pipenv shell in the notebook: `python -m ipykernel install --user --name=my-virtualenv-name`
 Note that there are compatibility issues with the version of tensorflow installed using the pipfile and Apple M1 or M2 chips. If you have a machine with one of these chips you will have to manually install the packages listed in the Pipfile.
 
 ## Input files
@@ -136,7 +137,7 @@ The combinations that you could use as centre/neighbour atoms are: [('H',), ('H'
 
 ## Input reference
 The `input.py` file allows the user to specify which SOAP descriptor(S) to be optimised. It also allows to user to specify
-several parameters to tweak the genetic algorithm specifications.
+several parameters to tweak the genetic algorithm specifications. The input file is required to be in the same folder as the genetic algorithm script for it to work. 
 
 The specifics of the SOAP descriptor(s) to be optimised are contained in one or more Python dictionaries in the following form:
 ```
