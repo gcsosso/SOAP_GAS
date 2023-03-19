@@ -92,7 +92,7 @@ The `SOAP_GAS` code is written in Python (3.x).
 * Blas and Lapack. Most of our builds have been tested with OpenBLAS
 * SciPy. Most of our builds have been tested with SciPy-bundle/2020.11
 * ase. Tested with ase/3.22.1
-* Scikit-learn. Tested with scikit-learn-1.0.2
+* Scikit-learn. Tested with scikit-learn/1.0.2
 
 ### Installation workflow
 * Get the `SOAP_GAS` code: `https://github.com/gcsosso/SOAP_GAS.git`
